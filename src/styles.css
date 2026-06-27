@@ -169,6 +169,10 @@ h2 {
   color: #176d8f;
 }
 
+.sectionTitle h2 {
+  min-width: 0;
+}
+
 .identityPanel .sectionTitle {
   margin-bottom: 0;
 }
@@ -246,12 +250,80 @@ h2 {
   min-width: 0;
 }
 
-.numberField span,
-.textAreaField span,
-.segmentedWrap > span {
+.fieldHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.labelText,
+.segmentedWrap > .fieldHeader {
   color: #617083;
   font-size: 0.76rem;
   font-weight: 800;
+}
+
+.labelText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.helpWrap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.helpButton {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: #176d8f;
+  background: #edf6fa;
+  border: 1px solid #bdd5e1;
+}
+
+.helpButton:hover,
+.helpButton:focus-visible {
+  color: #ffffff;
+  background: #176d8f;
+  outline: none;
+}
+
+.helpPopover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: min(280px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #263646;
+  background: #ffffff;
+  border: 1px solid #cdd8e5;
+  box-shadow: 0 16px 40px rgba(21, 33, 45, 0.18);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.38;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.helpWrap:hover .helpPopover,
+.helpWrap:focus-within .helpPopover {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .numberInput {
@@ -280,6 +352,7 @@ h2 {
   color: #172432;
   background: transparent;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .numberInput:focus-within,
@@ -310,6 +383,12 @@ textarea {
   display: grid;
   gap: 7px;
   margin-top: 10px;
+}
+
+.eyebrowWithHelp {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .segmentedControl {

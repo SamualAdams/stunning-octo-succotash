@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import {
   BarChart3,
   Calculator,
   Download,
+  Info,
   Landmark,
   RefreshCw,
   Search,
@@ -44,6 +45,82 @@ const DEFAULT_INPUTS = {
   marginRequired: 20
 };
 
+const SECTION_HELP = {
+  company:
+    'Start here to confirm the business, quote source, price, share count, and cash-flow anchors before trusting the valuation outputs.',
+  relative:
+    'Relative valuation asks what the market usually pays for similar earnings. It is quick and useful, but it can be misleading when the whole peer group is expensive or the company deserves a discount.',
+  dcf:
+    'DCF estimates what future free cash flow is worth today. This section is sensitive to cash flow, growth, discount rate, and terminal value, so small changes can move the result a lot.',
+  growth:
+    'Growth + Income projects future revenue, profits, dividends, buybacks, and a future exit multiple. It connects business performance to expected shareholder return.',
+  summary:
+    'Triangulated value averages the valid model outputs. The buy-below price applies your margin of safety so you are not relying on one perfect forecast.',
+  relativeChecks:
+    'These checks show how the relative valuation was built from earnings and P/E assumptions.',
+  dcfBridge:
+    'The bridge shows how forecast cash flows plus terminal value become enterprise value, then equity value after cash and debt.',
+  dcfCashFlows:
+    'This table shows each projected free-cash-flow year and its present value after discounting.',
+  growthProjection:
+    'This table shows how the growth model turns sales, margins, taxes, buybacks, and dividends into future EPS and cash returned.'
+};
+
+const FIELD_HELP = {
+  price:
+    'Current stock price. A higher price lowers the margin of safety and expected return against the same intrinsic value.',
+  trailingEps:
+    'Earnings per share from the recent past. It helps show what investors are paying for already-proven earnings.',
+  forwardEps:
+    'Expected next-year earnings per share. Relative valuation uses this as the earnings base for target prices.',
+  historicalPe:
+    'The P/E multiple the company has usually earned. A higher multiple raises the relative value target, but should be justified by quality and growth.',
+  peerPes:
+    'Comparable company P/E multiples. The average becomes a market-based target multiple for this stock.',
+  cfo:
+    'Cash from operations in millions. Higher CFO raises free cash flow and usually increases DCF value.',
+  capex:
+    'Capital spending in millions. Higher capex reduces free cash flow because more cash is needed to maintain or grow the business.',
+  cash:
+    'Cash and investments in millions. Cash is added back after valuing the business operations.',
+  debt:
+    'Debt in millions. Debt is subtracted from enterprise value because it belongs to lenders before shareholders.',
+  treasuryYield:
+    'The risk-free baseline return. A higher Treasury yield raises the discount rate and lowers present value.',
+  riskPremium:
+    'Extra return demanded for business risk. A higher premium lowers DCF value and forces a bigger expected reward.',
+  fcfGrowth:
+    'Annual free-cash-flow growth during the forecast period. Higher growth raises future cash flows and DCF value.',
+  terminalGrowth:
+    'Long-run growth after the forecast period. Higher terminal growth raises terminal value, but should stay conservative.',
+  terminalMethod:
+    'Choose how to estimate value after the forecast period. Perpetuity uses steady long-term growth; exit multiple assumes a sale at a future P/FCF multiple.',
+  dcfYears:
+    'How many years to forecast before terminal value. More years gives the explicit forecast more weight.',
+  exitMultiple:
+    'Terminal P/FCF multiple if you use the exit method. Higher exit multiple raises terminal value.',
+  revenue:
+    'Current annual revenue in millions. It is the starting base for the growth and income projection.',
+  salesGrowth:
+    'Expected annual revenue growth. Higher sales growth raises future revenue, EPS, dividends, and future price if margins hold.',
+  operatingMargin:
+    'Operating profit as a percent of sales. Higher margin turns more revenue into profit and raises projected EPS.',
+  interestExpense:
+    'Annual interest cost in millions. Higher interest reduces pretax income and projected EPS.',
+  taxRate:
+    'Percent of pretax income paid in taxes. Higher tax rate lowers net income and EPS.',
+  buybackRate:
+    'Annual share count reduction. More buybacks spread earnings over fewer shares, raising EPS if the business can afford them.',
+  payoutRatio:
+    'Percent of EPS paid as dividends. Higher payout raises cash returned but leaves less room for reinvestment.',
+  exitPe:
+    'Future P/E multiple applied to projected EPS. Higher exit P/E raises future stock price but should match business quality.',
+  projectionYears:
+    'Years in the growth projection. Longer periods compound the assumptions for more years.',
+  marginRequired:
+    'Discount you require below estimated value. A higher margin of safety lowers the buy-below price and protects against bad assumptions.'
+};
+
 const moneyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -66,8 +143,14 @@ const numberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1
 });
 
+const inputNumberFormatter = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 8
+});
+
+const stripNumberFormatting = (value) => String(value ?? '').replace(/,/g, '').trim();
+
 const toNumber = (value) => {
-  const parsed = Number.parseFloat(value);
+  const parsed = Number.parseFloat(stripNumberFormatting(value));
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
@@ -95,6 +178,13 @@ const formatCompactMoney = (millions) =>
 const formatPercent = (value) => (Number.isFinite(value) ? percentFormatter.format(value) : 'n/a');
 const formatMultiple = (value) => (Number.isFinite(value) ? `${numberFormatter.format(value)}x` : 'n/a');
 const formatNumber = (value) => (Number.isFinite(value) ? numberFormatter.format(value) : 'n/a');
+const formatInputNumber = (value) => {
+  const raw = stripNumberFormatting(value);
+  if (raw === '' || raw === '-' || raw === '.') return raw;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return raw;
+  return inputNumberFormatter.format(parsed);
+};
 
 function calculateValuations(inputs) {
   const price = toNumber(inputs.price);
@@ -338,10 +428,7 @@ function App() {
       <main className="workspace">
         <aside className="inputRail">
           <section className="toolPanel identityPanel">
-            <div className="sectionTitle">
-              <ShieldCheck size={18} />
-              <h2>{inputs.companyName || inputs.symbol}</h2>
-            </div>
+            <SectionHeader icon={<ShieldCheck size={18} />} title={inputs.companyName || inputs.symbol} help={SECTION_HELP.company} />
             <div className={`statusPill ${status.type}`}>{status.message}</div>
             <div className="snapshotGrid">
               <Snapshot label="Price" value={formatMoney(valuation.price)} />
@@ -352,43 +439,91 @@ function App() {
           </section>
 
           <section className="toolPanel">
-            <div className="sectionTitle">
-              <BarChart3 size={18} />
-              <h2>Relative P/E</h2>
-            </div>
+            <SectionHeader icon={<BarChart3 size={18} />} title="Relative P/E" help={SECTION_HELP.relative} />
             <div className="fieldGrid two">
-              <NumberField label="Price" value={inputs.price} onChange={updateInput('price')} prefix="$" />
-              <NumberField label="Trailing EPS" value={inputs.trailingEps} onChange={updateInput('trailingEps')} prefix="$" />
-              <NumberField label="Forward EPS" value={inputs.forwardEps} onChange={updateInput('forwardEps')} prefix="$" />
-              <NumberField label="Historical P/E" value={inputs.historicalPe} onChange={updateInput('historicalPe')} suffix="x" />
+              <NumberField label="Price" value={inputs.price} onChange={updateInput('price')} prefix="$" help={FIELD_HELP.price} />
+              <NumberField
+                label="Trailing EPS"
+                value={inputs.trailingEps}
+                onChange={updateInput('trailingEps')}
+                prefix="$"
+                help={FIELD_HELP.trailingEps}
+              />
+              <NumberField
+                label="Forward EPS"
+                value={inputs.forwardEps}
+                onChange={updateInput('forwardEps')}
+                prefix="$"
+                help={FIELD_HELP.forwardEps}
+              />
+              <NumberField
+                label="Historical P/E"
+                value={inputs.historicalPe}
+                onChange={updateInput('historicalPe')}
+                suffix="x"
+                help={FIELD_HELP.historicalPe}
+              />
             </div>
-            <label className="textAreaField">
-              <span>Peer P/E set</span>
-              <textarea value={inputs.peerPes} onChange={updateInput('peerPes')} rows={3} />
-            </label>
+            <div className="textAreaField">
+              <div className="fieldHeader">
+                <label className="labelText" htmlFor="peer-p-e-set">
+                  Peer P/E set
+                </label>
+                <HelpButton text={FIELD_HELP.peerPes} label="Peer P/E set help" />
+              </div>
+              <textarea id="peer-p-e-set" value={inputs.peerPes} onChange={updateInput('peerPes')} rows={3} />
+            </div>
           </section>
 
           <section className="toolPanel">
-            <div className="sectionTitle">
-              <Calculator size={18} />
-              <h2>DCF</h2>
-            </div>
+            <SectionHeader icon={<Calculator size={18} />} title="DCF" help={SECTION_HELP.dcf} />
             <div className="fieldGrid two">
-              <NumberField label="CFO" value={inputs.cfo} onChange={updateInput('cfo')} suffix="$M" />
-              <NumberField label="Capex" value={inputs.capex} onChange={updateInput('capex')} suffix="$M" />
-              <NumberField label="Cash" value={inputs.cash} onChange={updateInput('cash')} suffix="$M" />
-              <NumberField label="Debt" value={inputs.debt} onChange={updateInput('debt')} suffix="$M" />
-              <NumberField label="Treasury" value={inputs.treasuryYield} onChange={updateInput('treasuryYield')} suffix="%" />
-              <NumberField label="Risk premium" value={inputs.riskPremium} onChange={updateInput('riskPremium')} suffix="%" />
-              <NumberField label="FCF growth" value={inputs.fcfGrowth} onChange={updateInput('fcfGrowth')} suffix="%" />
-              <NumberField label="Terminal growth" value={inputs.terminalGrowth} onChange={updateInput('terminalGrowth')} suffix="%" />
-              <NumberField label="Years" value={inputs.dcfYears} onChange={updateInput('dcfYears')} step="1" />
-              <NumberField label="Exit P/FCF" value={inputs.exitMultiple} onChange={updateInput('exitMultiple')} suffix="x" />
+              <NumberField label="CFO" value={inputs.cfo} onChange={updateInput('cfo')} suffix="$M" help={FIELD_HELP.cfo} />
+              <NumberField label="Capex" value={inputs.capex} onChange={updateInput('capex')} suffix="$M" help={FIELD_HELP.capex} />
+              <NumberField label="Cash" value={inputs.cash} onChange={updateInput('cash')} suffix="$M" help={FIELD_HELP.cash} />
+              <NumberField label="Debt" value={inputs.debt} onChange={updateInput('debt')} suffix="$M" help={FIELD_HELP.debt} />
+              <NumberField
+                label="Treasury"
+                value={inputs.treasuryYield}
+                onChange={updateInput('treasuryYield')}
+                suffix="%"
+                help={FIELD_HELP.treasuryYield}
+              />
+              <NumberField
+                label="Risk premium"
+                value={inputs.riskPremium}
+                onChange={updateInput('riskPremium')}
+                suffix="%"
+                help={FIELD_HELP.riskPremium}
+              />
+              <NumberField
+                label="FCF growth"
+                value={inputs.fcfGrowth}
+                onChange={updateInput('fcfGrowth')}
+                suffix="%"
+                help={FIELD_HELP.fcfGrowth}
+              />
+              <NumberField
+                label="Terminal growth"
+                value={inputs.terminalGrowth}
+                onChange={updateInput('terminalGrowth')}
+                suffix="%"
+                help={FIELD_HELP.terminalGrowth}
+              />
+              <NumberField label="Years" value={inputs.dcfYears} onChange={updateInput('dcfYears')} step="1" help={FIELD_HELP.dcfYears} />
+              <NumberField
+                label="Exit P/FCF"
+                value={inputs.exitMultiple}
+                onChange={updateInput('exitMultiple')}
+                suffix="x"
+                help={FIELD_HELP.exitMultiple}
+              />
             </div>
             <SegmentedControl
               label="Terminal value"
               value={inputs.terminalMethod}
               onChange={setTerminalMethod}
+              help={FIELD_HELP.terminalMethod}
               options={[
                 { value: 'perpetuity', label: 'Perpetuity' },
                 { value: 'exit', label: 'Exit multiple' }
@@ -397,21 +532,54 @@ function App() {
           </section>
 
           <section className="toolPanel">
-            <div className="sectionTitle">
-              <TrendingUp size={18} />
-              <h2>Growth + Income</h2>
-            </div>
+            <SectionHeader icon={<TrendingUp size={18} />} title="Growth + Income" help={SECTION_HELP.growth} />
             <div className="fieldGrid two">
-              <NumberField label="Revenue" value={inputs.revenue} onChange={updateInput('revenue')} suffix="$M" />
-              <NumberField label="Sales growth" value={inputs.salesGrowth} onChange={updateInput('salesGrowth')} suffix="%" />
-              <NumberField label="Op margin" value={inputs.operatingMargin} onChange={updateInput('operatingMargin')} suffix="%" />
-              <NumberField label="Interest" value={inputs.interestExpense} onChange={updateInput('interestExpense')} suffix="$M" />
-              <NumberField label="Tax rate" value={inputs.taxRate} onChange={updateInput('taxRate')} suffix="%" />
-              <NumberField label="Buybacks" value={inputs.buybackRate} onChange={updateInput('buybackRate')} suffix="%" />
-              <NumberField label="Payout" value={inputs.payoutRatio} onChange={updateInput('payoutRatio')} suffix="%" />
-              <NumberField label="Exit P/E" value={inputs.exitPe} onChange={updateInput('exitPe')} suffix="x" />
-              <NumberField label="Years" value={inputs.projectionYears} onChange={updateInput('projectionYears')} step="1" />
-              <NumberField label="Safety margin" value={inputs.marginRequired} onChange={updateInput('marginRequired')} suffix="%" />
+              <NumberField label="Revenue" value={inputs.revenue} onChange={updateInput('revenue')} suffix="$M" help={FIELD_HELP.revenue} />
+              <NumberField
+                label="Sales growth"
+                value={inputs.salesGrowth}
+                onChange={updateInput('salesGrowth')}
+                suffix="%"
+                help={FIELD_HELP.salesGrowth}
+              />
+              <NumberField
+                label="Op margin"
+                value={inputs.operatingMargin}
+                onChange={updateInput('operatingMargin')}
+                suffix="%"
+                help={FIELD_HELP.operatingMargin}
+              />
+              <NumberField
+                label="Interest"
+                value={inputs.interestExpense}
+                onChange={updateInput('interestExpense')}
+                suffix="$M"
+                help={FIELD_HELP.interestExpense}
+              />
+              <NumberField label="Tax rate" value={inputs.taxRate} onChange={updateInput('taxRate')} suffix="%" help={FIELD_HELP.taxRate} />
+              <NumberField
+                label="Buybacks"
+                value={inputs.buybackRate}
+                onChange={updateInput('buybackRate')}
+                suffix="%"
+                help={FIELD_HELP.buybackRate}
+              />
+              <NumberField label="Payout" value={inputs.payoutRatio} onChange={updateInput('payoutRatio')} suffix="%" help={FIELD_HELP.payoutRatio} />
+              <NumberField label="Exit P/E" value={inputs.exitPe} onChange={updateInput('exitPe')} suffix="x" help={FIELD_HELP.exitPe} />
+              <NumberField
+                label="Years"
+                value={inputs.projectionYears}
+                onChange={updateInput('projectionYears')}
+                step="1"
+                help={FIELD_HELP.projectionYears}
+              />
+              <NumberField
+                label="Safety margin"
+                value={inputs.marginRequired}
+                onChange={updateInput('marginRequired')}
+                suffix="%"
+                help={FIELD_HELP.marginRequired}
+              />
             </div>
           </section>
         </aside>
@@ -419,7 +587,10 @@ function App() {
         <section className="results">
           <div className="summaryBand">
             <div>
-              <p className="eyebrow">Triangulated value</p>
+              <p className="eyebrow eyebrowWithHelp">
+                Triangulated value
+                <HelpButton text={SECTION_HELP.summary} label="Triangulated value help" />
+              </p>
               <h2>{formatMoney(valuation.summary.triangulatedValue)}</h2>
             </div>
             <div className="summaryMetrics">
@@ -457,10 +628,7 @@ function App() {
 
           <div className="detailGrid">
             <section className="toolPanel resultPanel">
-              <div className="sectionTitle">
-                <Sigma size={18} />
-                <h2>Relative Checks</h2>
-              </div>
+              <SectionHeader icon={<Sigma size={18} />} title="Relative Checks" help={SECTION_HELP.relativeChecks} />
               <div className="miniTable">
                 <MetricRow label="Trailing P/E" value={formatMultiple(valuation.relative.trailingPe)} />
                 <MetricRow label="Forward P/E" value={formatMultiple(valuation.relative.forwardPe)} />
@@ -470,10 +638,7 @@ function App() {
             </section>
 
             <section className="toolPanel resultPanel">
-              <div className="sectionTitle">
-                <Landmark size={18} />
-                <h2>DCF Bridge</h2>
-              </div>
+              <SectionHeader icon={<Landmark size={18} />} title="DCF Bridge" help={SECTION_HELP.dcfBridge} />
               <div className="miniTable">
                 <MetricRow label="PV cash flows" value={formatCompactMoney(valuation.dcf.pvCashFlows)} />
                 <MetricRow label="PV terminal" value={formatCompactMoney(valuation.dcf.pvTerminal)} />
@@ -484,10 +649,7 @@ function App() {
           </div>
 
           <section className="toolPanel tablePanel">
-            <div className="sectionTitle">
-              <SlidersHorizontal size={18} />
-              <h2>DCF Cash Flows</h2>
-            </div>
+            <SectionHeader icon={<SlidersHorizontal size={18} />} title="DCF Cash Flows" help={SECTION_HELP.dcfCashFlows} />
             <DataTable
               columns={['Year', 'FCF', 'PV']}
               rows={valuation.dcf.rows.map((row) => [row.year, formatCompactMoney(row.fcf), formatCompactMoney(row.pv)])}
@@ -495,10 +657,7 @@ function App() {
           </section>
 
           <section className="toolPanel tablePanel">
-            <div className="sectionTitle">
-              <TrendingUp size={18} />
-              <h2>Growth Projection</h2>
-            </div>
+            <SectionHeader icon={<TrendingUp size={18} />} title="Growth Projection" help={SECTION_HELP.growthProjection} />
             <DataTable
               columns={['Year', 'Revenue', 'Shares', 'EPS', 'Dividend']}
               rows={valuation.growth.rows.map((row) => [
@@ -516,24 +675,72 @@ function App() {
   );
 }
 
-function NumberField({ label, value, onChange, prefix, suffix, step = '0.01' }) {
-  const id = label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+function SectionHeader({ icon, title, help }) {
   return (
-    <label className="numberField" htmlFor={id}>
-      <span>{label}</span>
-      <div className="numberInput">
-        {prefix && <b>{prefix}</b>}
-        <input id={id} type="number" step={step} value={value} onChange={onChange} />
-        {suffix && <b>{suffix}</b>}
-      </div>
-    </label>
+    <div className="sectionTitle">
+      {icon}
+      <h2>{title}</h2>
+      <HelpButton text={help} label={`${title} help`} />
+    </div>
   );
 }
 
-function SegmentedControl({ label, value, options, onChange }) {
+function HelpButton({ text, label }) {
+  const helpId = useId();
+  return (
+    <span className="helpWrap">
+      <button type="button" className="helpButton" aria-label={label} aria-describedby={helpId}>
+        <Info size={14} />
+      </button>
+      <span id={helpId} className="helpPopover" role="tooltip">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+function normalizeNumberInput(value) {
+  const cleaned = String(value)
+    .replace(/,/g, '')
+    .replace(/[^\d.-]/g, '');
+  const negative = cleaned.startsWith('-');
+  const unsigned = cleaned.replace(/-/g, '');
+  const [whole = '', ...decimalParts] = unsigned.split('.');
+  const decimal = decimalParts.join('');
+  return `${negative ? '-' : ''}${whole}${decimalParts.length ? `.${decimal}` : ''}`;
+}
+
+function NumberField({ label, value, onChange, prefix, suffix, help }) {
+  const id = useId();
+  const handleChange = (event) => {
+    const nextValue = normalizeNumberInput(event.target.value);
+    onChange({ target: { value: nextValue } });
+  };
+
+  return (
+    <div className="numberField">
+      <div className="fieldHeader">
+        <label className="labelText" htmlFor={id}>
+          {label}
+        </label>
+        {help && <HelpButton text={help} label={`${label} help`} />}
+      </div>
+      <div className="numberInput">
+        {prefix && <b>{prefix}</b>}
+        <input id={id} type="text" inputMode="decimal" value={formatInputNumber(value)} onChange={handleChange} />
+        {suffix && <b>{suffix}</b>}
+      </div>
+    </div>
+  );
+}
+
+function SegmentedControl({ label, value, options, onChange, help }) {
   return (
     <div className="segmentedWrap">
-      <span>{label}</span>
+      <span className="fieldHeader">
+        <span className="labelText">{label}</span>
+        {help && <HelpButton text={help} label={`${label} help`} />}
+      </span>
       <div className="segmentedControl">
         {options.map((option) => (
           <button

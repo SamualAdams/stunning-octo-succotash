@@ -30,6 +30,53 @@ const firstNumber = (...values) => {
 
 const toMillions = (value) => (value === null || value === undefined ? null : value / 1_000_000);
 
+const readMarketNumber = (value) => {
+  if (typeof value !== 'string') return readNumber(value);
+  const normalized = value.replace(/[$,%\s]/g, '').replace(/,/g, '');
+  if (!normalized || normalized.toUpperCase() === 'N/A' || normalized.toUpperCase() === 'NA') return null;
+  return readNumber(normalized);
+};
+
+const fetchJson = async (url) => {
+  const response = await fetch(url, {
+    headers: {
+      accept: 'application/json, text/plain, */*',
+      'user-agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36'
+    }
+  });
+  if (!response.ok) return null;
+  return response.json();
+};
+
+const fetchNasdaqQuote = async (symbol) => {
+  const infoUrl = new URL(`https://api.nasdaq.com/api/quote/${encodeURIComponent(symbol)}/info`);
+  infoUrl.searchParams.set('assetclass', 'stocks');
+  const summaryUrl = new URL(`https://api.nasdaq.com/api/quote/${encodeURIComponent(symbol)}/summary`);
+  summaryUrl.searchParams.set('assetclass', 'stocks');
+
+  const [info, summary] = await Promise.all([fetchJson(infoUrl), fetchJson(summaryUrl).catch(() => null)]);
+  const quote = info?.data;
+  const primary = quote?.primaryData || {};
+  const summaryData = summary?.data?.summaryData || {};
+  const price = readMarketNumber(primary.lastSalePrice);
+  const marketCap = readMarketNumber(summaryData.MarketCap?.value);
+
+  if (!quote || !price) return null;
+
+  return {
+    symbol: quote.symbol || symbol,
+    shortName: quote.companyName || quote.symbol || symbol,
+    currency: primary.currency || 'USD',
+    source: 'Nasdaq',
+    metrics: {
+      price,
+      marketCap: toMillions(marketCap),
+      shares: marketCap && price ? toMillions(marketCap / price) : null
+    }
+  };
+};
+
 const fetchAlphaQuote = async (symbol) => {
   const apiKey = process.env.ALPHAVANTAGE_API_KEY || 'demo';
   const url = new URL('https://www.alphavantage.co/query');
@@ -83,14 +130,17 @@ app.get('/api/stock/:symbol', async (req, res) => {
   }
 
   try {
-    const alphaQuote = await fetchAlphaQuote(symbol).catch(() => null);
-    const yahooQuote = alphaQuote?.metrics?.price ? null : await fetchYahooQuote(symbol).catch(() => null);
-    const payload = alphaQuote || yahooQuote;
+    const nasdaqQuote = await fetchNasdaqQuote(symbol).catch(() => null);
+    const alphaQuote = nasdaqQuote?.metrics?.price ? null : await fetchAlphaQuote(symbol).catch(() => null);
+    const yahooQuote =
+      nasdaqQuote?.metrics?.price || alphaQuote?.metrics?.price
+        ? null
+        : await fetchYahooQuote(symbol).catch(() => null);
+    const payload = nasdaqQuote || alphaQuote || yahooQuote;
 
     if (!payload?.metrics?.price) {
       res.status(502).json({
-        error:
-          'Live quote unavailable. Add ALPHAVANTAGE_API_KEY for broader lookup coverage or enter assumptions manually.'
+        error: 'Live quote unavailable right now. Enter the current price and assumptions manually.'
       });
       return;
     }
@@ -119,8 +169,7 @@ app.get('/api/stock/:symbol', async (req, res) => {
     });
   } catch (error) {
     res.status(502).json({
-      error:
-        'Live quote unavailable. Add ALPHAVANTAGE_API_KEY for broader lookup coverage or enter assumptions manually.'
+      error: 'Live quote unavailable right now. Enter the current price and assumptions manually.'
     });
   }
 });

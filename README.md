@@ -15,4 +15,4 @@ npm run dev
 
 Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
 
-The `Fetch` button uses a local Express endpoint. It reads live quote data from Alpha Vantage when `ALPHAVANTAGE_API_KEY` is set, falls back to the public demo quote where available, then attempts Yahoo Finance quote data. All fields remain editable, and the output should be treated as a valuation worksheet rather than financial advice.
+The `Fetch` button uses a local Express endpoint. It tries Nasdaq's public quote endpoint first with no API key, then falls back to Alpha Vantage or Yahoo Finance if available. All fields remain editable, and the output should be treated as a valuation worksheet rather than financial advice.

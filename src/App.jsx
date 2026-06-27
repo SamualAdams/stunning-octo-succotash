@@ -283,7 +283,9 @@ function App() {
       }));
       setStatus({
         type: 'success',
-        message: `${payload.shortName || payload.symbol} updated at ${new Date(payload.asOf).toLocaleTimeString([], {
+        message: `${payload.shortName || payload.symbol} updated from ${
+          payload.source || 'live quote'
+        } at ${new Date(payload.asOf).toLocaleTimeString([], {
           hour: 'numeric',
           minute: '2-digit'
         })}.`

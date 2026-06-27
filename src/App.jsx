@@ -1,10 +1,15 @@
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
   Calculator,
   Download,
+  FileText,
+  Folder,
+  FolderPlus,
   Info,
   Landmark,
+  MoreHorizontal,
+  Plus,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -197,6 +202,22 @@ const formatInputNumber = (value) => {
   return inputNumberFormatter.format(parsed);
 };
 
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    },
+    ...options
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || 'Request failed.');
+  return payload;
+}
+
+const caseDisplayName = (caseRecord) =>
+  caseRecord?.name || caseRecord?.companyName || caseRecord?.symbol || 'Untitled Case';
+
 function calculateValuations(inputs) {
   const price = toNumber(inputs.price);
   const shares = Math.max(toNumber(inputs.shares), 0);
@@ -336,7 +357,104 @@ function App() {
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
   const [status, setStatus] = useState({ type: 'idle', message: 'Manual assumptions loaded.' });
   const [isFetching, setIsFetching] = useState(false);
+  const [cases, setCases] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [activeCaseId, setActiveCaseId] = useState(null);
+  const [caseMessage, setCaseMessage] = useState('Loading cases...');
+  const [contextMenu, setContextMenu] = useState(null);
+  const [draggedCaseId, setDraggedCaseId] = useState(null);
+  const hasLoadedCasesRef = useRef(false);
+  const isApplyingCaseRef = useRef(false);
+  const saveTimerRef = useRef(null);
   const valuation = useMemo(() => calculateValuations(inputs), [inputs]);
+  const activeCase = useMemo(() => cases.find((caseRecord) => caseRecord.id === activeCaseId) || null, [cases, activeCaseId]);
+
+  const refreshCaseIndex = async () => {
+    const payload = await requestJson('/api/cases');
+    setCases(payload.cases || []);
+    setFolders(payload.folders || []);
+    return payload;
+  };
+
+  const applyCase = (caseRecord) => {
+    if (!caseRecord) return;
+    isApplyingCaseRef.current = true;
+    setActiveCaseId(caseRecord.id);
+    setInputs({ ...DEFAULT_INPUTS, ...(caseRecord.inputs || {}) });
+    setStatus({ type: 'idle', message: `Loaded ${caseDisplayName(caseRecord)}.` });
+    setCaseMessage(`Loaded ${caseDisplayName(caseRecord)}.`);
+    window.setTimeout(() => {
+      isApplyingCaseRef.current = false;
+    }, 0);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initializeCases = async () => {
+      try {
+        const payload = await requestJson('/api/cases');
+        let caseList = payload.cases || [];
+        let folderList = payload.folders || [];
+
+        if (!caseList.length) {
+          const created = await requestJson('/api/cases', {
+            method: 'POST',
+            body: JSON.stringify({ name: DEFAULT_INPUTS.companyName, inputs: DEFAULT_INPUTS })
+          });
+          const refreshed = await requestJson('/api/cases');
+          caseList = refreshed.cases || [created.case].filter(Boolean);
+          folderList = refreshed.folders || [];
+        }
+
+        if (cancelled) return;
+        setCases(caseList);
+        setFolders(folderList);
+        hasLoadedCasesRef.current = true;
+        applyCase(caseList[0]);
+      } catch (error) {
+        if (cancelled) return;
+        hasLoadedCasesRef.current = true;
+        setCaseMessage(error.message);
+      }
+    };
+
+    initializeCases();
+
+    return () => {
+      cancelled = true;
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const closeContextMenu = () => setContextMenu(null);
+    window.addEventListener('click', closeContextMenu);
+    return () => window.removeEventListener('click', closeContextMenu);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedCasesRef.current || !activeCaseId || isApplyingCaseRef.current) return;
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+
+    saveTimerRef.current = window.setTimeout(async () => {
+      try {
+        const nextName = inputs.companyName || inputs.symbol || activeCase?.name || 'Untitled Case';
+        const payload = await requestJson(`/api/cases/${activeCaseId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ name: nextName, inputs })
+        });
+        setCases((current) => current.map((caseRecord) => (caseRecord.id === payload.case.id ? payload.case : caseRecord)));
+        setCaseMessage(`Saved ${caseDisplayName(payload.case)}.`);
+      } catch (error) {
+        setCaseMessage(error.message);
+      }
+    }, 650);
+
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+  }, [inputs, activeCaseId, activeCase?.name]);
 
   const updateInput = (key) => (event) => {
     setInputs((current) => ({ ...current, [key]: event.target.value }));
@@ -344,6 +462,69 @@ function App() {
 
   const setTerminalMethod = (terminalMethod) => {
     setInputs((current) => ({ ...current, terminalMethod }));
+  };
+
+  const createCase = async (folderPath = '') => {
+    const suggestedName = inputs.symbol ? `${inputs.symbol} valuation` : 'New valuation case';
+    const name = window.prompt('Case name', suggestedName);
+    if (name === null) return;
+
+    try {
+      const payload = await requestJson('/api/cases', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: name.trim() || suggestedName,
+          folderPath,
+          inputs
+        })
+      });
+      await refreshCaseIndex();
+      applyCase(payload.case);
+    } catch (error) {
+      setCaseMessage(error.message);
+    }
+  };
+
+  const createFolder = async () => {
+    const name = window.prompt('Folder name');
+    if (name === null || !name.trim()) return null;
+
+    try {
+      const payload = await requestJson('/api/folders', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim() })
+      });
+      await refreshCaseIndex();
+      setCaseMessage(`Created folder ${payload.folder.name}.`);
+      return payload.folder;
+    } catch (error) {
+      setCaseMessage(error.message);
+      return null;
+    }
+  };
+
+  const moveCaseToFolder = async (caseId, folderPath) => {
+    if (!caseId) return;
+
+    try {
+      const payload = await requestJson(`/api/cases/${caseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ folderPath })
+      });
+      setCases((current) => current.map((caseRecord) => (caseRecord.id === caseId ? payload.case : caseRecord)));
+      await refreshCaseIndex();
+      setCaseMessage(folderPath ? `Moved ${caseDisplayName(payload.case)} to ${folderPath}.` : `Moved ${caseDisplayName(payload.case)} to Unfiled.`);
+    } catch (error) {
+      setCaseMessage(error.message);
+    } finally {
+      setContextMenu(null);
+      setDraggedCaseId(null);
+    }
+  };
+
+  const createFolderAndMoveCase = async (caseId) => {
+    const folder = await createFolder();
+    if (folder) await moveCaseToFolder(caseId, folder.path);
   };
 
   const fetchStock = async (event) => {
@@ -436,7 +617,23 @@ function App() {
         </form>
       </header>
 
-      <main className="workspace">
+      <div className="appFrame">
+        <CasesSidebar
+          cases={cases}
+          folders={folders}
+          activeCaseId={activeCaseId}
+          caseMessage={caseMessage}
+          contextMenu={contextMenu}
+          draggedCaseId={draggedCaseId}
+          onNewCase={() => createCase('')}
+          onNewFolder={createFolder}
+          onSelectCase={applyCase}
+          onMoveCase={moveCaseToFolder}
+          onCreateFolderAndMoveCase={createFolderAndMoveCase}
+          onContextMenu={setContextMenu}
+          onDragCase={setDraggedCaseId}
+        />
+        <main className="workspace">
         <aside className="inputRail">
           <section className="toolPanel identityPanel">
             <SectionHeader icon={<ShieldCheck size={18} />} title={inputs.companyName || inputs.symbol} help={SECTION_HELP.company} />
@@ -681,7 +878,188 @@ function App() {
             />
           </section>
         </section>
-      </main>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function CasesSidebar({
+  cases,
+  folders,
+  activeCaseId,
+  caseMessage,
+  contextMenu,
+  draggedCaseId,
+  onNewCase,
+  onNewFolder,
+  onSelectCase,
+  onMoveCase,
+  onCreateFolderAndMoveCase,
+  onContextMenu,
+  onDragCase
+}) {
+  const rootCases = cases.filter((caseRecord) => !caseRecord.folderPath);
+  const casesByFolder = folders.map((folder) => ({
+    ...folder,
+    cases: cases.filter((caseRecord) => caseRecord.folderPath === folder.path)
+  }));
+  const contextCase = contextMenu ? cases.find((caseRecord) => caseRecord.id === contextMenu.caseId) : null;
+
+  const dropCase = (event, folderPath) => {
+    event.preventDefault();
+    const caseId = event.dataTransfer.getData('text/plain') || draggedCaseId;
+    onMoveCase(caseId, folderPath);
+  };
+
+  return (
+    <aside className="caseSidebar">
+      <div className="caseSidebarHeader">
+        <div>
+          <p className="eyebrow">Saved work</p>
+          <h2>Cases</h2>
+        </div>
+        <button type="button" className="casePrimaryButton" onClick={onNewCase}>
+          <Plus size={16} />
+          <span>New Case</span>
+        </button>
+      </div>
+
+      <div className="caseActions">
+        <button type="button" onClick={onNewFolder}>
+          <FolderPlus size={16} />
+          <span>New Folder</span>
+        </button>
+      </div>
+
+      <p className="caseMessage">{caseMessage}</p>
+
+      <section
+        className={`caseFolderDrop ${draggedCaseId ? 'dropReady' : ''}`}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => dropCase(event, '')}
+      >
+        <div className="caseFolderTitle">
+          <Folder size={16} />
+          <span>Unfiled</span>
+          <b>{rootCases.length}</b>
+        </div>
+        <div className="caseList">
+          {rootCases.map((caseRecord) => (
+            <CaseRow
+              key={caseRecord.id}
+              caseRecord={caseRecord}
+              active={caseRecord.id === activeCaseId}
+              onSelectCase={onSelectCase}
+              onContextMenu={onContextMenu}
+              onDragCase={onDragCase}
+            />
+          ))}
+          {!rootCases.length && <p className="emptyCases">Drop cases here to remove them from folders.</p>}
+        </div>
+      </section>
+
+      <div className="folderStack">
+        {casesByFolder.map((folder) => (
+          <section
+            key={folder.path}
+            className={`caseFolderDrop ${draggedCaseId ? 'dropReady' : ''}`}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => dropCase(event, folder.path)}
+          >
+            <div className="caseFolderTitle">
+              <Folder size={16} />
+              <span>{folder.name}</span>
+              <b>{folder.cases.length}</b>
+            </div>
+            <div className="caseList">
+              {folder.cases.map((caseRecord) => (
+                <CaseRow
+                  key={caseRecord.id}
+                  caseRecord={caseRecord}
+                  active={caseRecord.id === activeCaseId}
+                  onSelectCase={onSelectCase}
+                  onContextMenu={onContextMenu}
+                  onDragCase={onDragCase}
+                />
+              ))}
+              {!folder.cases.length && <p className="emptyCases">Drag cases into this folder.</p>}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {contextMenu && contextCase && (
+        <CaseContextMenu
+          contextMenu={contextMenu}
+          caseRecord={contextCase}
+          folders={folders}
+          onMoveCase={onMoveCase}
+          onCreateFolderAndMoveCase={onCreateFolderAndMoveCase}
+        />
+      )}
+    </aside>
+  );
+}
+
+function CaseRow({ caseRecord, active, onSelectCase, onContextMenu, onDragCase }) {
+  const openContextMenu = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onContextMenu({ caseId: caseRecord.id, x: event.clientX, y: event.clientY });
+  };
+
+  const openContextFromButton = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    onContextMenu({ caseId: caseRecord.id, x: rect.left, y: rect.bottom + 6 });
+  };
+
+  return (
+    <div
+      className={`caseRow ${active ? 'active' : ''}`}
+      draggable
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelectCase(caseRecord)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') onSelectCase(caseRecord);
+      }}
+      onContextMenu={openContextMenu}
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/plain', caseRecord.id);
+        onDragCase(caseRecord.id);
+      }}
+      onDragEnd={() => onDragCase(null)}
+    >
+      <FileText size={16} />
+      <div>
+        <strong>{caseDisplayName(caseRecord)}</strong>
+        <span>{caseRecord.symbol || caseRecord.companyName || 'No ticker yet'}</span>
+      </div>
+      <button type="button" className="caseMenuButton" aria-label={`${caseDisplayName(caseRecord)} case menu`} onClick={openContextFromButton}>
+        <MoreHorizontal size={16} />
+      </button>
+    </div>
+  );
+}
+
+function CaseContextMenu({ contextMenu, caseRecord, folders, onMoveCase, onCreateFolderAndMoveCase }) {
+  return (
+    <div className="caseContextMenu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={(event) => event.stopPropagation()}>
+      <strong>{caseDisplayName(caseRecord)}</strong>
+      <button type="button" onClick={() => onMoveCase(caseRecord.id, '')}>
+        Move to Unfiled
+      </button>
+      {folders.map((folder) => (
+        <button key={folder.path} type="button" onClick={() => onMoveCase(caseRecord.id, folder.path)}>
+          Move to {folder.name}
+        </button>
+      ))}
+      <button type="button" onClick={() => onCreateFolderAndMoveCase(caseRecord.id)}>
+        Create folder and move...
+      </button>
     </div>
   );
 }

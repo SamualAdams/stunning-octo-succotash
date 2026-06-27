@@ -129,11 +129,18 @@ h2 {
   border: 1px solid #d8e2ec;
 }
 
+.appFrame {
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+  align-items: start;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(320px, 410px) minmax(0, 1fr);
   gap: 16px;
-  margin-top: 16px;
   align-items: start;
 }
 
@@ -143,6 +150,7 @@ h2 {
   gap: 14px;
 }
 
+.caseSidebar,
 .toolPanel,
 .summaryBand,
 .rangePanel {
@@ -154,6 +162,216 @@ h2 {
 
 .toolPanel {
   padding: 16px;
+}
+
+.caseSidebar {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.caseSidebarHeader {
+  display: grid;
+  gap: 10px;
+}
+
+.caseSidebarHeader h2 {
+  font-size: 1rem;
+}
+
+.casePrimaryButton,
+.caseActions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.casePrimaryButton {
+  color: #ffffff;
+  background: #176d8f;
+}
+
+.caseActions {
+  display: grid;
+}
+
+.caseActions button {
+  color: #304156;
+  background: #edf3f8;
+  border: 1px solid #d8e2ec;
+}
+
+.caseMessage {
+  margin: 0;
+  color: #617083;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.folderStack {
+  display: grid;
+  gap: 10px;
+}
+
+.caseFolderDrop {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.caseFolderDrop.dropReady {
+  border-color: #94bdce;
+  background: #f2f8fb;
+}
+
+.caseFolderTitle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: #4f6277;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.caseFolderTitle span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caseFolderTitle b {
+  color: #708195;
+  font-size: 0.72rem;
+}
+
+.caseList {
+  display: grid;
+  gap: 6px;
+}
+
+.caseRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #304156;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.caseRow:hover,
+.caseRow:focus-visible {
+  border-color: #cdd8e5;
+  outline: none;
+}
+
+.caseRow.active {
+  border-color: #94bdce;
+  background: #edf6fa;
+}
+
+.caseRow strong,
+.caseRow span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caseRow strong {
+  color: #15212d;
+  font-size: 0.82rem;
+}
+
+.caseRow span {
+  margin-top: 2px;
+  color: #708195;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.caseMenuButton {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: #708195;
+  background: transparent;
+}
+
+.caseMenuButton:hover,
+.caseMenuButton:focus-visible {
+  color: #176d8f;
+  background: #edf3f8;
+  outline: none;
+}
+
+.emptyCases {
+  margin: 0;
+  color: #7a8899;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.caseContextMenu {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  gap: 4px;
+  width: min(240px, calc(100vw - 24px));
+  padding: 8px;
+  border: 1px solid #cdd8e5;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 45px rgba(21, 33, 45, 0.18);
+}
+
+.caseContextMenu strong {
+  padding: 6px 8px;
+  color: #15212d;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caseContextMenu button {
+  min-height: 32px;
+  border-radius: 7px;
+  padding: 0 8px;
+  color: #304156;
+  background: transparent;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.caseContextMenu button:hover,
+.caseContextMenu button:focus-visible {
+  color: #176d8f;
+  background: #edf6fa;
+  outline: none;
 }
 
 .identityPanel {
@@ -656,6 +874,15 @@ td {
 }
 
 @media (max-width: 1120px) {
+  .appFrame {
+    grid-template-columns: 1fr;
+  }
+
+  .caseSidebar {
+    position: static;
+    max-height: none;
+  }
+
   .workspace {
     grid-template-columns: 1fr;
   }

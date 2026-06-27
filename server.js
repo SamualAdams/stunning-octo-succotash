@@ -35,8 +35,9 @@ const normalizeFolderPath = (folderPath = '') => {
     .filter(Boolean)
     .join('/');
 
+  const root = path.resolve(casesRoot);
   const resolved = path.resolve(casesRoot, normalized);
-  if (!resolved.startsWith(path.resolve(casesRoot))) {
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
     throw new Error('Invalid folder path.');
   }
   return normalized;

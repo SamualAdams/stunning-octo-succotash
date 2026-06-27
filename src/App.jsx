@@ -690,7 +690,7 @@ function HelpButton({ text, label }) {
   return (
     <span className="helpWrap">
       <button type="button" className="helpButton" aria-label={label} aria-describedby={helpId}>
-        <Info size={14} />
+        <Info size={12} strokeWidth={2.4} />
       </button>
       <span id={helpId} className="helpPopover" role="tooltip">
         {text}

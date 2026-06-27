@@ -275,23 +275,30 @@ h2 {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
+  line-height: 1;
 }
 
 .helpButton {
-  display: inline-grid;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   border-radius: 999px;
-  color: #176d8f;
-  background: #edf6fa;
-  border: 1px solid #bdd5e1;
+  color: #708195;
+  background: transparent;
+  border: 1px solid #c6d4df;
+  line-height: 0;
+  vertical-align: middle;
 }
 
 .helpButton:hover,
 .helpButton:focus-visible {
-  color: #ffffff;
-  background: #176d8f;
+  color: #176d8f;
+  background: #edf6fa;
+  border-color: #94bdce;
   outline: none;
 }
 

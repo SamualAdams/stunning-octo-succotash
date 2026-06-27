@@ -219,8 +219,11 @@ h2 {
   background: #f8fafc;
 }
 
-.snapshot span {
-  display: block;
+.snapshotLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   color: #617083;
   font-size: 0.72rem;
   font-weight: 800;
@@ -303,11 +306,8 @@ h2 {
 }
 
 .helpPopover {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
+  position: fixed;
   z-index: 30;
-  width: min(280px, calc(100vw - 32px));
   padding: 10px 12px;
   border-radius: 8px;
   color: #263646;
@@ -320,16 +320,18 @@ h2 {
   letter-spacing: 0;
   text-transform: none;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   transform: translateY(-4px);
   transition:
+    visibility 140ms ease,
     opacity 140ms ease,
     transform 140ms ease;
 }
 
-.helpWrap:hover .helpPopover,
-.helpWrap:focus-within .helpPopover {
+.helpPopover.open {
   opacity: 1;
+  visibility: visible;
   transform: translateY(0);
 }
 

@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
   Calculator,
@@ -77,6 +77,8 @@ const FIELD_HELP = {
     'The P/E multiple the company has usually earned. A higher multiple raises the relative value target, but should be justified by quality and growth.',
   peerPes:
     'Comparable company P/E multiples. The average becomes a market-based target multiple for this stock.',
+  shares:
+    'Shares outstanding in millions. More shares spread the company value over more pieces, lowering value per share.',
   cfo:
     'Cash from operations in millions. Higher CFO raises free cash flow and usually increases DCF value.',
   capex:
@@ -119,6 +121,15 @@ const FIELD_HELP = {
     'Years in the growth projection. Longer periods compound the assumptions for more years.',
   marginRequired:
     'Discount you require below estimated value. A higher margin of safety lowers the buy-below price and protects against bad assumptions.'
+};
+
+const SNAPSHOT_HELP = {
+  buyBelow:
+    'The highest price that still meets your required margin of safety based on the triangulated value.',
+  currentMargin:
+    'How far the current price sits below or above the triangulated value. Positive means price is below estimated value.',
+  modelSpread:
+    'How far apart the model outputs are. A wider spread means the assumptions are less aligned and deserve more caution.'
 };
 
 const moneyFormatter = new Intl.NumberFormat('en-US', {
@@ -431,10 +442,10 @@ function App() {
             <SectionHeader icon={<ShieldCheck size={18} />} title={inputs.companyName || inputs.symbol} help={SECTION_HELP.company} />
             <div className={`statusPill ${status.type}`}>{status.message}</div>
             <div className="snapshotGrid">
-              <Snapshot label="Price" value={formatMoney(valuation.price)} />
-              <Snapshot label="Shares" value={`${formatNumber(toNumber(inputs.shares))}M`} />
-              <Snapshot label="CFO" value={formatCompactMoney(toNumber(inputs.cfo))} />
-              <Snapshot label="Capex" value={formatCompactMoney(toNumber(inputs.capex))} />
+              <Snapshot label="Price" value={formatMoney(valuation.price)} help={FIELD_HELP.price} />
+              <Snapshot label="Shares" value={`${formatNumber(toNumber(inputs.shares))}M`} help={FIELD_HELP.shares} />
+              <Snapshot label="CFO" value={formatCompactMoney(toNumber(inputs.cfo))} help={FIELD_HELP.cfo} />
+              <Snapshot label="Capex" value={formatCompactMoney(toNumber(inputs.capex))} help={FIELD_HELP.capex} />
             </div>
           </section>
 
@@ -594,9 +605,9 @@ function App() {
               <h2>{formatMoney(valuation.summary.triangulatedValue)}</h2>
             </div>
             <div className="summaryMetrics">
-              <Snapshot label="Buy below" value={formatMoney(valuation.summary.buyBelow)} />
-              <Snapshot label="Current margin" value={formatPercent(valuation.summary.currentMargin)} />
-              <Snapshot label="Model spread" value={formatPercent(valuation.summary.modelSpread)} />
+              <Snapshot label="Buy below" value={formatMoney(valuation.summary.buyBelow)} help={SNAPSHOT_HELP.buyBelow} />
+              <Snapshot label="Current margin" value={formatPercent(valuation.summary.currentMargin)} help={SNAPSHOT_HELP.currentMargin} />
+              <Snapshot label="Model spread" value={formatPercent(valuation.summary.modelSpread)} help={SNAPSHOT_HELP.modelSpread} />
             </div>
           </div>
 
@@ -687,12 +698,47 @@ function SectionHeader({ icon, title, help }) {
 
 function HelpButton({ text, label }) {
   const helpId = useId();
+  const buttonRef = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [popoverStyle, setPopoverStyle] = useState(null);
+
+  const openHelp = () => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const gutter = 12;
+    const width = Math.min(280, Math.max(140, window.innerWidth - gutter * 2));
+    const centeredLeft = rect.left + rect.width / 2 - width / 2;
+    const left = Math.min(window.innerWidth - width - gutter, Math.max(gutter, centeredLeft));
+    const estimatedHeight = 112;
+    const belowTop = rect.bottom + 8;
+    const top =
+      belowTop + estimatedHeight > window.innerHeight - gutter
+        ? Math.max(gutter, rect.top - estimatedHeight - 8)
+        : belowTop;
+
+    setPopoverStyle({ left: `${left}px`, top: `${top}px`, width: `${width}px` });
+    setIsOpen(true);
+  };
+
+  const closeHelp = () => {
+    setIsOpen(false);
+  };
+
   return (
-    <span className="helpWrap">
-      <button type="button" className="helpButton" aria-label={label} aria-describedby={helpId}>
+    <span className="helpWrap" onMouseEnter={openHelp} onMouseLeave={closeHelp}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="helpButton"
+        aria-label={label}
+        aria-describedby={helpId}
+        onFocus={openHelp}
+        onBlur={closeHelp}
+      >
         <Info size={12} strokeWidth={2.4} />
       </button>
-      <span id={helpId} className="helpPopover" role="tooltip">
+      <span id={helpId} className={`helpPopover ${isOpen ? 'open' : ''}`} role="tooltip" style={popoverStyle || undefined}>
         {text}
       </span>
     </span>
@@ -757,10 +803,13 @@ function SegmentedControl({ label, value, options, onChange, help }) {
   );
 }
 
-function Snapshot({ label, value }) {
+function Snapshot({ label, value, help }) {
   return (
     <div className="snapshot">
-      <span>{label}</span>
+      <span className="snapshotLabel">
+        {label}
+        {help && <HelpButton text={help} label={`${label} help`} />}
+      </span>
       <strong>{value}</strong>
     </div>
   );

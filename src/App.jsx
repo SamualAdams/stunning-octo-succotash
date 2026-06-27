@@ -51,36 +51,36 @@ const SECTION_HELP = {
   relative:
     'Relative valuation asks what the market usually pays for similar earnings. It is quick and useful, but it can be misleading when the whole peer group is expensive or the company deserves a discount.',
   dcf:
-    'DCF estimates what future free cash flow is worth today. This section is sensitive to cash flow, growth, discount rate, and terminal value, so small changes can move the result a lot.',
+    'Discounted cash flow (DCF) estimates what future free cash flow is worth today. This section is sensitive to cash flow, growth, discount rate, and terminal value, so small changes can move the result a lot.',
   growth:
     'Growth + Income projects future revenue, profits, dividends, buybacks, and a future exit multiple. It connects business performance to expected shareholder return.',
   summary:
     'Triangulated value averages the valid model outputs. The buy-below price applies your margin of safety so you are not relying on one perfect forecast.',
   relativeChecks:
-    'These checks show how the relative valuation was built from earnings and P/E assumptions.',
+    'These checks show how the relative valuation was built from earnings and price-to-earnings (P/E) assumptions.',
   dcfBridge:
     'The bridge shows how forecast cash flows plus terminal value become enterprise value, then equity value after cash and debt.',
   dcfCashFlows:
     'This table shows each projected free-cash-flow year and its present value after discounting.',
   growthProjection:
-    'This table shows how the growth model turns sales, margins, taxes, buybacks, and dividends into future EPS and cash returned.'
+    'This table shows how the growth model turns sales, margins, taxes, buybacks, and dividends into future earnings per share (EPS) and cash returned.'
 };
 
 const FIELD_HELP = {
   price:
     'Current stock price. A higher price lowers the margin of safety and expected return against the same intrinsic value.',
   trailingEps:
-    'Earnings per share from the recent past. It helps show what investors are paying for already-proven earnings.',
+    'Earnings per share (EPS) from the recent past. It helps show what investors are paying for already-proven earnings.',
   forwardEps:
-    'Expected next-year earnings per share. Relative valuation uses this as the earnings base for target prices.',
+    'Expected next-year earnings per share (EPS). Relative valuation uses this as the earnings base for target prices.',
   historicalPe:
-    'The P/E multiple the company has usually earned. A higher multiple raises the relative value target, but should be justified by quality and growth.',
+    'The price-to-earnings (P/E) multiple the company has usually earned. A higher multiple raises the relative value target, but should be justified by quality and growth.',
   peerPes:
-    'Comparable company P/E multiples. The average becomes a market-based target multiple for this stock.',
+    'Comparable company price-to-earnings (P/E) multiples. The average becomes a market-based target multiple for this stock.',
   shares:
     'Shares outstanding in millions. More shares spread the company value over more pieces, lowering value per share.',
   cfo:
-    'Cash from operations in millions. Higher CFO raises free cash flow and usually increases DCF value.',
+    'Cash from operations (CFO) in millions. Higher cash from operations raises free cash flow and usually increases discounted cash flow (DCF) value.',
   capex:
     'Capital spending in millions. Higher capex reduces free cash flow because more cash is needed to maintain or grow the business.',
   cash:
@@ -90,33 +90,33 @@ const FIELD_HELP = {
   treasuryYield:
     'The risk-free baseline return. A higher Treasury yield raises the discount rate and lowers present value.',
   riskPremium:
-    'Extra return demanded for business risk. A higher premium lowers DCF value and forces a bigger expected reward.',
+    'Extra return demanded for business risk. A higher premium lowers discounted cash flow (DCF) value and forces a bigger expected reward.',
   fcfGrowth:
-    'Annual free-cash-flow growth during the forecast period. Higher growth raises future cash flows and DCF value.',
+    'Annual free cash flow (FCF) growth during the forecast period. Higher growth raises future cash flows and discounted cash flow (DCF) value.',
   terminalGrowth:
     'Long-run growth after the forecast period. Higher terminal growth raises terminal value, but should stay conservative.',
   terminalMethod:
-    'Choose how to estimate value after the forecast period. Perpetuity uses steady long-term growth; exit multiple assumes a sale at a future P/FCF multiple.',
+    'Choose how to estimate value after the forecast period. Perpetuity uses steady long-term growth; exit multiple assumes a sale at a future price-to-free-cash-flow (P/FCF) multiple.',
   dcfYears:
     'How many years to forecast before terminal value. More years gives the explicit forecast more weight.',
   exitMultiple:
-    'Terminal P/FCF multiple if you use the exit method. Higher exit multiple raises terminal value.',
+    'Terminal price-to-free-cash-flow (P/FCF) multiple if you use the exit method. Higher exit multiple raises terminal value.',
   revenue:
     'Current annual revenue in millions. It is the starting base for the growth and income projection.',
   salesGrowth:
-    'Expected annual revenue growth. Higher sales growth raises future revenue, EPS, dividends, and future price if margins hold.',
+    'Expected annual revenue growth. Higher sales growth raises future revenue, earnings per share (EPS), dividends, and future price if margins hold.',
   operatingMargin:
-    'Operating profit as a percent of sales. Higher margin turns more revenue into profit and raises projected EPS.',
+    'Operating profit as a percent of sales. Higher margin turns more revenue into profit and raises projected earnings per share (EPS).',
   interestExpense:
-    'Annual interest cost in millions. Higher interest reduces pretax income and projected EPS.',
+    'Annual interest cost in millions. Higher interest reduces pretax income and projected earnings per share (EPS).',
   taxRate:
-    'Percent of pretax income paid in taxes. Higher tax rate lowers net income and EPS.',
+    'Percent of pretax income paid in taxes. Higher tax rate lowers net income and earnings per share (EPS).',
   buybackRate:
-    'Annual share count reduction. More buybacks spread earnings over fewer shares, raising EPS if the business can afford them.',
+    'Annual share count reduction. More buybacks spread earnings over fewer shares, raising earnings per share (EPS) if the business can afford them.',
   payoutRatio:
-    'Percent of EPS paid as dividends. Higher payout raises cash returned but leaves less room for reinvestment.',
+    'Percent of earnings per share (EPS) paid as dividends. Higher payout raises cash returned but leaves less room for reinvestment.',
   exitPe:
-    'Future P/E multiple applied to projected EPS. Higher exit P/E raises future stock price but should match business quality.',
+    'Future price-to-earnings (P/E) multiple applied to projected earnings per share (EPS). Higher exit price-to-earnings multiple raises future stock price but should match business quality.',
   projectionYears:
     'Years in the growth projection. Longer periods compound the assumptions for more years.',
   marginRequired:
